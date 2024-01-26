@@ -923,6 +923,7 @@ scale_scroll(MouseTrackingMode mouse_tracking_mode, double offset, bool is_high_
 
 void
 scroll_event(double xoffset, double yoffset, int flags, int modifiers) {
+    xoffset = 0.0;
     debug("\x1b[36mScroll\x1b[m xoffset: %f yoffset: %f flags: %x modifiers: %s\n", xoffset, yoffset, flags, format_mods(modifiers));
     bool in_tab_bar;
     static id_type window_for_momentum_scroll = 0;
