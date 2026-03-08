@@ -106,36 +106,32 @@ vec4 rounded_corner_bg(vec4 ans_premul) {
     if (p.x < r && p.y < r && length(p - vec2(r, r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
-        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1, -1), 0);
         vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
-        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+        if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
     // Top-right corner
     if ((w - p.x) < r && p.y < r && length(p - vec2(w - r, r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
-        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1, -1), 0);
         vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
-        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+        if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
     // Bottom-left corner
     if (p.x < r && (h - p.y) < r && length(p - vec2(r, h - r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
-        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1, +1), 0);
         vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
-        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+        if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
     // Bottom-right corner
     if ((w - p.x) < r && (h - p.y) < r && length(p - vec2(w - r, h - r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
-        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1, +1), 0);
         vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
-        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+        if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
     return ans_premul;
