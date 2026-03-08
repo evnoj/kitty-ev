@@ -6,9 +6,14 @@
 uniform float text_contrast;
 uniform float text_gamma_adjustment;
 uniform sampler2DArray sprites;
+uniform sampler2D cell_bg_texture;
+uniform float rounded_corners_radius;
 
 in vec3 background;
 in vec4 effective_background_premul;
+flat in ivec2 cell_grid_pos;
+flat in vec2 cell_size;
+in vec2 pixel_in_cell;
 #ifndef ONLY_BACKGROUND
 in float effective_text_alpha;
 in vec3 sprite_pos;
@@ -89,11 +94,59 @@ vec4 adjust_foreground_contrast_with_background(vec4 text_fg, vec3 bg) {
 #endif  // ifndef ONLY_BACKGROUND
 
 
+#if !defined(ONLY_FOREGROUND)
+vec4 rounded_corner_bg(vec4 ans_premul) {
+    float r = rounded_corners_radius;
+    if (r <= 0.0) return ans_premul;
+    float w = cell_size.x;
+    float h = cell_size.y;
+    vec2 p = pixel_in_cell;
+
+    // Top-left corner
+    if (p.x < r && p.y < r && length(p - vec2(r, r)) > r) {
+        vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
+        vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
+        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1, -1), 0);
+        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
+        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+            return vec4(n0.rgb * ans_premul.a, ans_premul.a);
+    }
+    // Top-right corner
+    if ((w - p.x) < r && p.y < r && length(p - vec2(w - r, r)) > r) {
+        vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
+        vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
+        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1, -1), 0);
+        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
+        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+            return vec4(n0.rgb * ans_premul.a, ans_premul.a);
+    }
+    // Bottom-left corner
+    if (p.x < r && (h - p.y) < r && length(p - vec2(r, h - r)) > r) {
+        vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
+        vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
+        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1, +1), 0);
+        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
+        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+            return vec4(n0.rgb * ans_premul.a, ans_premul.a);
+    }
+    // Bottom-right corner
+    if ((w - p.x) < r && (h - p.y) < r && length(p - vec2(w - r, h - r)) > r) {
+        vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
+        vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
+        vec4 n2 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1, +1), 0);
+        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
+        if (all(equal(n0, n1)) && all(equal(n1, n2)) && !all(equal(n0, cur)))
+            return vec4(n0.rgb * ans_premul.a, ans_premul.a);
+    }
+    return ans_premul;
+}
+#endif
+
 void main() {
 #ifdef ONLY_FOREGROUND
     vec4 ans_premul;
 #else
-    vec4 ans_premul = effective_background_premul;
+    vec4 ans_premul = rounded_corner_bg(effective_background_premul);
 #endif
 
 #ifndef ONLY_BACKGROUND

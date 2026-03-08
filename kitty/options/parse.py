@@ -1249,6 +1249,9 @@ class Parser:
     def resize_in_steps(self, val: str, ans: dict[str, typing.Any]) -> None:
         ans['resize_in_steps'] = to_bool(val)
 
+    def rounded_corners_radius(self, val: str, ans: dict[str, typing.Any]) -> None:
+        ans['rounded_corners_radius'] = positive_float(val)
+
     def scrollback_fill_enlarged_window(self, val: str, ans: dict[str, typing.Any]) -> None:
         ans['scrollback_fill_enlarged_window'] = to_bool(val)
 

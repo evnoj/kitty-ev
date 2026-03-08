@@ -50,6 +50,9 @@ const uint cursor_shape_map[] = uint[5](  // maps cursor shape to foreground spr
 
 out vec3 background;
 out vec4 effective_background_premul;
+flat out ivec2 cell_grid_pos;
+flat out vec2 cell_size;
+out vec2 pixel_in_cell;
 #ifndef ONLY_BACKGROUND
 out float effective_text_alpha;
 out vec3 sprite_pos;
@@ -222,6 +225,9 @@ CellData set_vertex_position(vec3 cell_fg, vec3 cell_bg) {
     float top = 1.0 - (float(row) + row_offset) * dy;
     uvec2 pos = cell_pos_map[gl_VertexID];
     gl_Position = vec4(vec2(left, left + dx)[pos.x], vec2(top, top - dy)[pos.y], 0, 1);
+    cell_grid_pos = ivec2(int(column), int(row));
+    cell_size = vec2(float(cell_width), float(cell_height));
+    pixel_in_cell = vec2(float(pos.x) * float(cell_width), float(pos.y) * float(cell_height));
     // The character sprite being rendered
 #ifndef ONLY_BACKGROUND
     sprite_pos = to_sprite_pos(pos, sprite_idx[0] & SPRITE_INDEX_MASK);

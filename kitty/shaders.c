@@ -29,7 +29,7 @@ enum {
     ROUNDED_RECT_PROGRAM,
     NUM_PROGRAMS
 };
-enum { SPRITE_MAP_UNIT, GRAPHICS_UNIT, SPRITE_DECORATIONS_MAP_UNIT };
+enum { SPRITE_MAP_UNIT, GRAPHICS_UNIT, SPRITE_DECORATIONS_MAP_UNIT, CELL_BG_TEXTURE_UNIT };
 
 typedef struct UIRenderData {
     unsigned screen_width, screen_height, cell_width, cell_height, screen_left, screen_top, full_framebuffer_width, full_framebuffer_height;
@@ -728,8 +728,10 @@ set_cell_uniforms(bool force) {
             bind_program(i); const CellUniforms *cu = &cell_program_layouts[i].uniforms;
             glUniform1i(cu->sprites, SPRITE_MAP_UNIT);
             glUniform1i(cu->sprite_decorations_map, SPRITE_DECORATIONS_MAP_UNIT);
+            glUniform1i(cu->cell_bg_texture, CELL_BG_TEXTURE_UNIT);
             glUniform1f(cu->text_contrast, text_contrast);
             glUniform1f(cu->text_gamma_adjustment, text_gamma_adjustment);
+            glUniform1f(cu->rounded_corners_radius, OPT(rounded_corners_radius));
         }
         bind_program(BLIT_PROGRAM); glUniform1i(blit_program_layout.uniforms.image, GRAPHICS_UNIT);
         bind_program(SCREENSHOT_PROGRAM); glUniform1i(screenshot_program_layout.uniforms.image, GRAPHICS_UNIT);
@@ -1407,8 +1409,86 @@ send_cell_data_to_gpu(ssize_t vao_idx, Screen *screen, OSWindow *os_window) {
     return changed;
 }
 
+// Rounded corners background color texture {{{
+
+static void
+update_cell_bg_texture(WindowRenderData *srd, Screen *screen) {
+    ColorProfile *cp = screen->paused_rendering.expires_at ?
+        &screen->paused_rendering.color_profile : screen->color_profile;
+    LineBuf *linebuf = screen->paused_rendering.expires_at ?
+        screen->paused_rendering.linebuf : screen->linebuf;
+    const unsigned cols = screen->columns;
+    const unsigned rows = screen->lines;
+
+    if (!srd->cell_bg_texture_id) {
+        glGenTextures(1, &srd->cell_bg_texture_id);
+        glBindTexture(GL_TEXTURE_2D, srd->cell_bg_texture_id);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, cols, rows, 0, GL_RGBA, GL_FLOAT, NULL);
+        srd->cell_bg_texture_cols = cols;
+        srd->cell_bg_texture_rows = rows;
+    } else {
+        glBindTexture(GL_TEXTURE_2D, srd->cell_bg_texture_id);
+        if (srd->cell_bg_texture_cols != cols || srd->cell_bg_texture_rows != rows) {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, cols, rows, 0, GL_RGBA, GL_FLOAT, NULL);
+            srd->cell_bg_texture_cols = cols;
+            srd->cell_bg_texture_rows = rows;
+        }
+    }
+
+    uint32_t default_bg_rgb = colorprofile_to_color(cp, cp->overridden.default_bg, cp->configured.default_bg).rgb;
+
+    static GLfloat *buf = NULL;
+    static size_t buf_cap = 0;
+    size_t needed = (size_t)cols * rows * 4;
+    if (needed > buf_cap) {
+        free(buf);
+        buf = malloc(needed * sizeof(GLfloat));
+        if (!buf) fatal("Out of memory allocating cell bg texture buffer");
+        buf_cap = needed;
+    }
+
+    GLfloat *p = buf;
+    for (unsigned y = 0; y < rows; y++) {
+        linebuf_init_line(linebuf, y);
+        GPUCell *gpu_cells = linebuf->line->gpu_cells;
+        for (unsigned x = 0; x < cols; x++, p += 4) {
+            uint32_t bg = gpu_cells[x].bg;
+            uint8_t t = bg & 0xFF;
+            uint32_t rgb;
+            if (t == 1) {
+                rgb = cp->color_table[(bg >> 8) & 0xFF];
+            } else if (t == 2) {
+                rgb = bg >> 8;
+            } else {
+                rgb = default_bg_rgb;
+            }
+            p[0] = srgb_lut[(rgb >> 16) & 0xFF];
+            p[1] = srgb_lut[(rgb >> 8) & 0xFF];
+            p[2] = srgb_lut[rgb & 0xFF];
+            p[3] = 1.0f;
+        }
+    }
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, cols, rows, GL_RGBA, GL_FLOAT, buf);
+}
+
 void
-draw_cells(const WindowRenderData *srd, OSWindow *os_window, bool is_active_window, bool is_tab_bar, bool is_single_window, Window *window) {
+release_cell_bg_texture(WindowRenderData *rd) {
+    if (rd->cell_bg_texture_id) {
+        glDeleteTextures(1, &rd->cell_bg_texture_id);
+        rd->cell_bg_texture_id = 0;
+        rd->cell_bg_texture_cols = 0;
+        rd->cell_bg_texture_rows = 0;
+    }
+}
+
+// }}}
+
+void
+draw_cells(WindowRenderData *srd, OSWindow *os_window, bool is_active_window, bool is_tab_bar, bool is_single_window, Window *window) {
     Screen *screen = srd->screen;
     CELL_BUFFERS;
     bind_vertex_array(srd->vao_idx);
@@ -1443,6 +1523,14 @@ draw_cells(const WindowRenderData *srd, OSWindow *os_window, bool is_active_wind
         .background_color = default_bg, .bg_alpha=effective_os_window_alpha(os_window),
     };
     screen->reload_all_gpu_data = false;
+
+    // Update and bind the per-cell background color texture for rounded corners
+    if (OPT(rounded_corners_radius) > 0.f) {
+        update_cell_bg_texture(srd, screen);
+    }
+    glActiveTexture(GL_TEXTURE0 + CELL_BG_TEXTURE_UNIT);
+    glBindTexture(GL_TEXTURE_2D, srd->cell_bg_texture_id);
+
     save_viewport_using_top_left_origin(
         ui.screen_left, ui.screen_top, ui.screen_width, ui.screen_height, ui.full_framebuffer_height);
     if (ui.os_window->needs_layers) draw_cells_with_layers(&ui, srd->vao_idx);

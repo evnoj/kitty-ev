@@ -84,7 +84,7 @@ typedef struct Options {
     float macos_thicken_font;
     WindowTitleIn macos_show_window_title_in;
     char *bell_path, *bell_theme, *macos_ns_window_layer;
-    float background_opacity, dim_opacity;
+    float background_opacity, dim_opacity, rounded_corners_radius;
 
     ScrollbarVisibilityPolicy scrollbar;
     bool scrollbar_interactive, scrollbar_jump_on_click;
@@ -185,6 +185,8 @@ typedef struct WindowRenderData {
     ssize_t vao_idx;
     WindowGeometry geometry;
     Screen *screen;
+    unsigned int cell_bg_texture_id;    // GL texture for per-cell bg colors (rounded corners)
+    unsigned int cell_bg_texture_cols, cell_bg_texture_rows;
 } WindowRenderData;
 
 typedef struct Click {
@@ -585,7 +587,8 @@ ssize_t create_cell_vao(void);
 ssize_t create_graphics_vao(void);
 ssize_t create_border_vao(void);
 bool send_cell_data_to_gpu(ssize_t, Screen *, OSWindow *);
-void draw_cells(const WindowRenderData*, OSWindow *, bool, bool, bool, Window*);
+void draw_cells(WindowRenderData*, OSWindow *, bool, bool, bool, Window*);
+void release_cell_bg_texture(WindowRenderData*);
 bool update_cursor_trail(CursorTrail *ct, Window *w, monotonic_t now, OSWindow *os_window);
 void set_gpu_viewport(unsigned w, unsigned h);
 void free_texture(uint32_t*);

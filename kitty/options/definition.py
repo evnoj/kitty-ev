@@ -2397,6 +2397,19 @@ config.
 )
 
 opt(
+    'rounded_corners_radius',
+    '0',
+    option_type='positive_float',
+    ctype='float',
+    long_text="""
+Radius in pixels for rounded terminal cell corners. When all three neighboring
+cells sharing a corner have the same background color (different from the
+current cell's background), that corner is rendered as a smooth arc instead of
+a right angle. Set to :code:`0` to disable. Values between 2 and 6 look best.
+""",
+)
+
+opt(
     'background_blur',
     '0',
     option_type='int',

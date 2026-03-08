@@ -314,8 +314,10 @@ static void
 release_gpu_resources_for_window(Window *w) {
     if (w->render_data.vao_idx > -1) remove_vao(w->render_data.vao_idx);
     w->render_data.vao_idx = -1;
+    release_cell_bg_texture(&w->render_data);
     if (w->window_title_render_data.vao_idx > -1) remove_vao(w->window_title_render_data.vao_idx);
     w->window_title_render_data.vao_idx = -1;
+    release_cell_bg_texture(&w->window_title_render_data);
     Py_CLEAR(w->window_title_render_data.screen);
 }
 
