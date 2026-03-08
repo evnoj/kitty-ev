@@ -102,11 +102,11 @@ vec4 rounded_corner_bg(vec4 ans_premul) {
     float h = cell_size.y;
     vec2 p = pixel_in_cell;
 
+    vec4 cur = vec4(background, 1.0);
     // Top-left corner
     if (p.x < r && p.y < r && length(p - vec2(r, r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
-        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
         if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
@@ -114,7 +114,6 @@ vec4 rounded_corner_bg(vec4 ans_premul) {
     if ((w - p.x) < r && p.y < r && length(p - vec2(w - r, r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, -1), 0);
-        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
         if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
@@ -122,7 +121,6 @@ vec4 rounded_corner_bg(vec4 ans_premul) {
     if (p.x < r && (h - p.y) < r && length(p - vec2(r, h - r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(-1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
-        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
         if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
@@ -130,7 +128,6 @@ vec4 rounded_corner_bg(vec4 ans_premul) {
     if ((w - p.x) < r && (h - p.y) < r && length(p - vec2(w - r, h - r)) > r) {
         vec4 n0 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2(+1,  0), 0);
         vec4 n1 = texelFetch(cell_bg_texture, cell_grid_pos + ivec2( 0, +1), 0);
-        vec4 cur = texelFetch(cell_bg_texture, cell_grid_pos, 0);
         if (all(equal(n0, n1)) && !all(equal(n0, cur)))
             return vec4(n0.rgb * ans_premul.a, ans_premul.a);
     }
@@ -142,7 +139,7 @@ void main() {
 #ifdef ONLY_FOREGROUND
     vec4 ans_premul;
 #else
-    vec4 ans_premul = rounded_corner_bg(effective_background_premul);
+    vec4 ans_premul = effective_background_premul;
 #endif
 
 #ifndef ONLY_BACKGROUND
@@ -156,5 +153,9 @@ void main() {
     ans_premul = alpha_blend_premul(text_fg_premul, ans_premul);
 #endif
 #endif  // ifndef ONLY_BACKGROUND
+
+#if !defined(ONLY_FOREGROUND)
+    ans_premul = rounded_corner_bg(ans_premul);
+#endif
     output_color = ans_premul;
 }
