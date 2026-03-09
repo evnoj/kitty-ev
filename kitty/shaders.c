@@ -1451,6 +1451,28 @@ update_cell_bg_texture(WindowRenderData *srd, Screen *screen) {
         buf_cap = needed;
     }
 
+    static uint8_t *sel_buf = NULL;
+    static size_t sel_buf_cap = 0;
+    const unsigned render_lines = render_lines_for_screen(screen);
+    const int sel_offset = pixel_scroll_enabled(screen);
+    size_t sel_needed = (size_t)render_lines * cols;
+    if (sel_needed > sel_buf_cap) {
+        free(sel_buf);
+        sel_buf = malloc(sel_needed);
+        if (!sel_buf) fatal("Out of memory allocating selection buffer for cell bg texture");
+        sel_buf_cap = sel_needed;
+    }
+    bool has_selection = screen_has_selection(screen);
+    if (has_selection) screen_apply_selection(screen, sel_buf, sel_needed);
+
+    bool use_cell_for_sel_bg =
+        cp->overridden.highlight_bg.type == COLOR_IS_SPECIAL ||
+        (cp->overridden.highlight_bg.type == COLOR_NOT_SET &&
+         cp->configured.highlight_bg.type == COLOR_IS_SPECIAL);
+    uint32_t highlight_bg_rgb = colorprofile_to_color(cp, cp->overridden.highlight_bg, cp->configured.highlight_bg).rgb;
+    uint32_t default_fg_rgb   = colorprofile_to_color(cp, cp->overridden.default_fg,   cp->configured.default_fg).rgb;
+    bool global_inverted = screen_invert_colors(screen);
+
     GLfloat *p = buf;
     for (unsigned y = 0; y < rows; y++) {
         linebuf_init_line(linebuf, y);
@@ -1465,6 +1487,24 @@ update_cell_bg_texture(WindowRenderData *srd, Screen *screen) {
                 rgb = bg >> 8;
             } else {
                 rgb = default_bg_rgb;
+            }
+            if (gpu_cells[x].attrs.reverse ^ global_inverted) {
+                uint32_t fg = gpu_cells[x].fg;
+                uint8_t ft = fg & 0xFF;
+                if      (ft == 1) rgb = cp->color_table[(fg >> 8) & 0xFF];
+                else if (ft == 2) rgb = fg >> 8;
+                else              rgb = default_fg_rgb;
+            }
+            if (has_selection && sel_buf[(y + sel_offset) * cols + x] & 1) {
+                if (use_cell_for_sel_bg) {
+                    uint32_t fg = gpu_cells[x].fg;
+                    uint8_t ft = fg & 0xFF;
+                    if      (ft == 1) rgb = cp->color_table[(fg >> 8) & 0xFF];
+                    else if (ft == 2) rgb = fg >> 8;
+                    else              rgb = default_fg_rgb;
+                } else {
+                    rgb = highlight_bg_rgb;
+                }
             }
             p[0] = srgb_lut[(rgb >> 16) & 0xFF];
             p[1] = srgb_lut[(rgb >> 8) & 0xFF];
